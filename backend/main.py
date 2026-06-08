@@ -100,26 +100,11 @@ def process_tender_url(url: str):
 
 
 def background_poll():
-    """Poll tenders.co.il API every 15 minutes — fully automatic."""
+    """Poll tenders.co.il API every 15 minutes — fully automatic (no browser needed)."""
     while True:
         print("=== Scanning tenders.co.il API ===")
         try:
-            from browser_scraper import is_token_valid, auto_refresh_token
-            from tenders_login import get_full_tender_list, get_jwt_token
-
-            # בדוק טוקן — חדש אוטומטית אם פג
-            if not is_token_valid():
-                print("[TOKEN] Expired — auto-refreshing via browser...")
-                if auto_refresh_token():
-                    print("[TOKEN] Auto-refresh OK!")
-                else:
-                    print("[TOKEN] Auto-refresh failed — skipping scan")
-                    time.sleep(900)
-                    continue
-
-            token = get_jwt_token(allow_relogin=False)
             from tenders_login import get_full_tender_list
-            from browser_scraper import scrape_tender_page
 
             tender_list = get_full_tender_list()
             print(f"API returned {len(tender_list)} tenders")
@@ -136,22 +121,9 @@ def background_poll():
                 if not url:
                     continue
 
-                # Step 1: שמור נתוני בסיס מה-API
                 full_data = basic_data.copy()
                 full_data["raw_html"] = ""
-
-                # Step 2: כנס לדף המכרז ושלוף קישורי מסמכים
-                try:
-                    scraped = scrape_tender_page(url)
-                    if scraped["success"] and scraped["documents"]:
-                        full_data["documents"] = scraped["documents"]
-                        full_data["_full_text"] = scraped["text"]
-                        print(f"  [DOCS] Found {len(scraped['documents'])} docs for {tid}")
-                    else:
-                        full_data["_full_text"] = basic_data.get("description", "")
-                except Exception as e:
-                    full_data["_full_text"] = basic_data.get("description", "")
-                    print(f"  [SCRAPE] Error: {e}")
+                full_data["_full_text"] = basic_data.get("description", "")
 
                 is_new = upsert_tender(full_data)
                 if is_new:
