@@ -26,6 +26,7 @@ def init_db():
             description TEXT,
             raw_html TEXT,
             documents TEXT,  -- JSON list of {name, url}
+            submission_status TEXT DEFAULT 'ממתין',
             created_at TEXT DEFAULT (datetime('now')),
             analyzed_at TEXT
         );
@@ -39,6 +40,7 @@ def init_db():
             required_documents TEXT,    -- JSON list
             questions_to_client TEXT,   -- JSON list
             submission_deadline TEXT,
+            submission_fee TEXT DEFAULT 'לא צוין',
             ai_summary TEXT,
             analyzed_at TEXT DEFAULT (datetime('now'))
         );
