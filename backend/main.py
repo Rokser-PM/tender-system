@@ -14,10 +14,6 @@ from fastapi.responses import JSONResponse, FileResponse
 import uvicorn
 
 from database import init_db, get_all_tenders, upsert_tender, save_analysis
-try:
-    from gmail_chrome import fetch_tender_urls_from_gmail as fetch_new_tender_urls
-except Exception:
-    from email_reader import fetch_new_tender_urls
 from analyzer import analyze_tender
 
 app = FastAPI(title="Tender System")
@@ -173,11 +169,29 @@ def get_tenders():
 
 @app.post("/api/scan")
 def trigger_scan(background_tasks: BackgroundTasks):
-    """Manually trigger Gmail scan."""
+    """Manually trigger tenders.co.il API scan."""
     def scan():
-        email_urls = fetch_new_tender_urls()
-        for item in email_urls:
-            process_tender_url(item["url"])
+        from tenders_login import get_full_tender_list
+        print("=== Manual scan triggered ===")
+        tender_list = get_full_tender_list()
+        print(f"API returned {len(tender_list)} tenders")
+        existing_ids = {t["tender_id"] for t in get_all_tenders()}
+        new_count = 0
+        for basic_data in tender_list:
+            tid = basic_data.get("tender_id", "")
+            if not tid or tid in existing_ids:
+                continue
+            full_data = basic_data.copy()
+            full_data["raw_html"] = ""
+            full_data["_full_text"] = basic_data.get("description", "")
+            is_new = upsert_tender(full_data)
+            if is_new:
+                analysis = analyze_tender(full_data)
+                save_analysis(full_data["tender_id"], analysis)
+                new_count += 1
+                status = {1: "YES", 0: "NO", -1: "?"}.get(analysis.get("eligible"), "?")
+                print(f"  [NEW] eligible={status} | {full_data.get('title','')[:40]}")
+        print(f"Manual scan done: {new_count} new tenders added")
     background_tasks.add_task(scan)
     return {"status": "scan started"}
 
