@@ -60,8 +60,9 @@ def is_token_valid(token: str) -> bool:
 def login_and_get_token() -> str | None:
     """מתחבר ומחזיר JWT token."""
     env = load_env()
-    phone = env.get("TENDERS_PHONE", "")
-    password = env.get("TENDERS_PASSWORD", "")
+    # תומך גם בקובץ .env וגם במשתני סביבה (Render, Docker וכו')
+    phone = os.getenv("TENDERS_PHONE", "") or env.get("TENDERS_PHONE", "")
+    password = os.getenv("TENDERS_PASSWORD", "") or env.get("TENDERS_PASSWORD", "")
 
     if not phone or not password:
         print("חסרים פרטי כניסה ב-.env")
