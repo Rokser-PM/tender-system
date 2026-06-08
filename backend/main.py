@@ -162,7 +162,13 @@ def startup():
 
 @app.get("/api/tenders")
 def get_tenders():
-    return JSONResponse(get_all_tenders())
+    try:
+        return JSONResponse(get_all_tenders())
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] /api/tenders: {e}")
+        traceback.print_exc()
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.post("/api/scan")
