@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מערכת מכרזים — רוכסר ניהול פרויקטים</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #1a1a2e; direction: rtl; }
+
+  /* Header */
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+  .header h1 { font-size: 1.5rem; font-weight: 700; }
+  .header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
+  .scan-btn { background: #0f3460; border: 2px solid #e94560; color: white; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.2s; }
+  .scan-btn:hover { background: #e94560; }
+  .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .add-url-bar { background: #1e2a45; padding: 10px 32px; display: flex; gap: 10px; align-items: center; }
+  .add-url-bar input { flex: 1; padding: 9px 14px; border-radius: 8px; border: none; font-size: 0.9rem; font-family: inherit; direction: ltr; }
+  .add-url-bar button { background: #e94560; color: white; border: none; padding: 9px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 700; font-family: inherit; white-space: nowrap; }
+  .add-url-bar button:hover { background: #c73652; }
+  .add-url-bar button:disabled { opacity: 0.5; }
+  .add-url-bar label { color: #aac; font-size: 0.85rem; white-space: nowrap; }
+
+  /* Stats bar */
+  .stats { display: flex; gap: 16px; padding: 16px 32px; background: white; border-bottom: 1px solid #e0e0e0; }
+  .stat { text-align: center; padding: 8px 20px; border-radius: 8px; min-width: 100px; }
+  .stat .num { font-size: 1.8rem; font-weight: 700; }
+  .stat .label { font-size: 0.75rem; color: #666; margin-top: 2px; }
+  .stat.eligible { background: #e8f5e9; }
+  .stat.eligible .num { color: #2e7d32; }
+  .stat.not-eligible { background: #fce4ec; }
+  .stat.not-eligible .num { color: #c62828; }
+  .stat.pending { background: #fff8e1; }
+  .stat.pending .num { color: #e65100; }
+  .stat.total { background: #e3f2fd; }
+  .stat.total .num { color: #1565c0; }
+
+  /* Filter bar */
+  .filters { padding: 12px 32px; display: flex; gap: 10px; align-items: center; }
+  .filters input { flex: 1; padding: 8px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
+  .filter-btn { padding: 8px 16px; border-radius: 8px; border: 2px solid; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.2s; background: white; }
+  .filter-btn.all { border-color: #1565c0; color: #1565c0; }
+  .filter-btn.all.active, .filter-btn.all:hover { background: #1565c0; color: white; }
+  .filter-btn.yes { border-color: #2e7d32; color: #2e7d32; }
+  .filter-btn.yes.active, .filter-btn.yes:hover { background: #2e7d32; color: white; }
+  .filter-btn.no { border-color: #c62828; color: #c62828; }
+  .filter-btn.no.active, .filter-btn.no:hover { background: #c62828; color: white; }
+  .filter-btn.pending { border-color: #e65100; color: #e65100; }
+  .filter-btn.pending.active, .filter-btn.pending:hover { background: #e65100; color: white; }
+
+  /* Table */
+  .table-wrap { padding: 0 32px 32px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); font-size: 0.88rem; }
+  thead { background: #1a1a2e; color: white; }
+  th { padding: 14px 12px; text-align: right; font-weight: 600; white-space: nowrap; }
+  td { padding: 12px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+
+  /* Eligibility badge */
+  .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.8rem; white-space: nowrap; }
+  .badge.yes { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+  .badge.no { background: #fce4ec; color: #c62828; border: 1px solid #ef9a9a; }
+  .badge.pending { background: #fff8e1; color: #e65100; border: 1px solid #ffcc02; }
+
+  /* Tender title */
+  .tender-title { font-weight: 600; color: #1a1a2e; min-width: 220px; max-width: 340px; }
+  .tender-title a { color: #0f3460; text-decoration: none; }
+  .tender-title a:hover { text-decoration: underline; }
+  .publisher-name { font-size: 0.8rem; color: #666; margin-top: 3px; }
+
+  /* Deadline */
+  .deadline { white-space: nowrap; }
+  .deadline.urgent { color: #c62828; font-weight: 700; }
+  .deadline.soon { color: #e65100; font-weight: 600; }
+
+  /* Conditions list */
+  .conditions-cell { max-width: 220px; }
+  .cond-item { font-size: 0.78rem; padding: 2px 0; display: flex; align-items: flex-start; gap: 4px; }
+  .cond-icon { flex-shrink: 0; margin-top: 1px; }
+  .cond-text { color: #444; }
+
+  /* Docs list */
+  .docs-cell { max-width: 160px; }
+  .doc-item { font-size: 0.78rem; color: #555; padding: 2px 0; }
+
+  /* Questions */
+  .questions-cell { max-width: 200px; }
+  .q-item { font-size: 0.78rem; color: #0f3460; padding: 2px 0; }
+
+  /* Links cell */
+  .links-cell { min-width: 110px; }
+  .link-btn { display: block; margin-bottom: 5px; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; text-decoration: none; text-align: center; white-space: nowrap; }
+  .link-btn.site { background: #e3f2fd; color: #1565c0; }
+  .link-btn.site:hover { background: #1565c0; color: white; }
+  .link-btn.doc { background: #f3e5f5; color: #6a1b9a; margin-bottom: 3px; }
+  .link-btn.doc:hover { background: #6a1b9a; color: white; }
+
+  /* Submission status */
+  .status-cell { min-width: 130px; }
+  .status-select { border: 2px solid #ddd; border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; font-family: inherit; cursor: pointer; width: 100%; background: white; transition: all 0.2s; }
+  .status-select.submitted { border-color: #2e7d32; background: #e8f5e9; color: #2e7d32; font-weight: 700; }
+  .status-select.not-submitted { border-color: #e65100; background: #fff8e1; color: #e65100; font-weight: 700; }
+  .status-select.not-relevant { border-color: #999; background: #f5f5f5; color: #777; }
+  .status-select.in-progress { border-color: #1565c0; background: #e3f2fd; color: #1565c0; font-weight: 700; }
+
+  /* Action buttons */
+  .actions { white-space: nowrap; display: flex; flex-direction: column; gap: 4px; }
+  .act-btn { padding: 5px 10px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.75rem; font-weight: 600; font-family: inherit; transition: all 0.15s; }
+  .act-btn.reanalyze { background: #e3f2fd; color: #1565c0; }
+  .act-btn.reanalyze:hover { background: #1565c0; color: white; }
+  .act-btn.open { background: #f3e5f5; color: #6a1b9a; }
+  .act-btn.open:hover { background: #6a1b9a; color: white; }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: white; border-radius: 16px; width: 680px; max-width: 96vw; max-height: 90vh; overflow-y: auto; padding: 28px; position: relative; }
+  .modal-close { position: absolute; top: 16px; left: 16px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #888; }
+  .modal h2 { font-size: 1.2rem; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #f0f0f0; }
+  .modal-section { margin-bottom: 20px; }
+  .modal-section h3 { font-size: 0.95rem; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
+  .modal-section ul { padding-right: 16px; }
+  .modal-section li { margin-bottom: 6px; font-size: 0.88rem; color: #444; }
+  .modal-section p { font-size: 0.88rem; color: #444; line-height: 1.6; }
+  .cond-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; padding: 8px; border-radius: 8px; }
+  .cond-row.met { background: #e8f5e9; }
+  .cond-row.not-met { background: #fce4ec; }
+  .cond-row.unknown { background: #fff8e1; }
+  .cond-row .cond-body { flex: 1; }
+  .cond-row .cond-name { font-weight: 600; font-size: 0.88rem; }
+  .cond-row .cond-note { font-size: 0.8rem; color: #666; margin-top: 2px; }
+
+  /* Loading */
+  .loading { text-align: center; padding: 60px; color: #888; font-size: 1.1rem; }
+  .spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid #ddd; border-top-color: #0f3460; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty { text-align: center; padding: 60px; color: #aaa; }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #1a1a2e; color: white; padding: 12px 20px; border-radius: 10px; font-size: 0.9rem; z-index: 200; animation: fadeIn 0.3s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>מערכת מכרזים</h1>
+    <div class="subtitle">רוכסר ניהול פרויקטים בע"מ</div>
+  </div>
+  <div style="display:flex;gap:10px">
+    <button class="scan-btn" onclick="triggerScan(this)">⟳ סרוק מכרזים חדשים</button>
+    <button class="scan-btn" onclick="reanalyzeAll(this)" style="border-color:#f0a500;font-size:0.82rem">📄 נתח מחדש עם מסמכים</button>
+  </div>
+</div>
+
+<div class="add-url-bar">
+  <label>📎 הדבק קישור מכרז מהמייל:</label>
+  <input type="text" id="url-input" placeholder="https://www.tenders.co.il/tender/..." />
+  <button onclick="addTenderUrl(this)">+ נתח מכרז</button>
+</div>
+
+<div class="stats" id="stats">
+  <div class="stat total"><div class="num" id="stat-total">—</div><div class="label">סה"כ מכרזים</div></div>
+  <div class="stat eligible"><div class="num" id="stat-yes">—</div><div class="label">עומד בתנאי סף</div></div>
+  <div class="stat not-eligible"><div class="num" id="stat-no">—</div><div class="label">לא עומד</div></div>
+  <div class="stat pending"><div class="num" id="stat-pending">—</div><div class="label">ממתין לניתוח</div></div>
+</div>
+
+<div class="filters">
+  <input type="text" id="search" placeholder="חיפוש לפי שם, מפרסם, ענף..." oninput="renderTable()">
+  <button class="filter-btn all active" onclick="setFilter('all',this)">הכל</button>
+  <button class="filter-btn yes" onclick="setFilter('yes',this)">✓ עומד בתנאי סף</button>
+  <button class="filter-btn no" onclick="setFilter('no',this)">✗ לא עומד</button>
+  <button class="filter-btn pending" onclick="setFilter('pending',this)">? ממתין</button>
+</div>
+
+<div class="table-wrap">
+  <div id="loading" class="loading"><div class="spinner"></div><br>טוען מכרזים...</div>
+  <table id="main-table" style="display:none">
+    <thead>
+      <tr>
+        <th>שם המכרז</th>
+        <th>עומד בתנאי סף</th>
+        <th>מועד הגשה</th>
+        <th>קישורים</th>
+        <th>תנאי סף</th>
+        <th>מסמכים נדרשים</th>
+        <th>שאלות למזמין</th>
+        <th>עלות הגשה</th>
+        <th>סטטוס הגשה</th>
+        <th>פעולות</th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+  </table>
+  <div id="empty" class="empty" style="display:none">אין מכרזים תואמים</div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2 id="modal-title"></h2>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+let allTenders = [];
+let activeFilter = 'all';
+
+async function loadTenders() {
+  try {
+    const res = await fetch('/api/tenders');
+    allTenders = await res.json();
+    updateStats();
+    renderTable();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('main-table').style.display = '';
+  } catch(e) {
+    document.getElementById('loading').innerHTML = '<span style="color:#c62828">שגיאה בטעינת נתונים. האם השרת פועל?</span>';
+  }
+}
+
+function updateStats() {
+  const yes = allTenders.filter(t => t.eligible === 1).length;
+  const no = allTenders.filter(t => t.eligible === 0).length;
+  const pending = allTenders.filter(t => t.eligible == null || t.eligible === -1).length;
+  document.getElementById('stat-total').textContent = allTenders.length;
+  document.getElementById('stat-yes').textContent = yes;
+  document.getElementById('stat-no').textContent = no;
+  document.getElementById('stat-pending').textContent = pending;
+}
+
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+function renderTable() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let data = allTenders;
+
+  if (activeFilter === 'yes') data = data.filter(t => t.eligible === 1);
+  else if (activeFilter === 'no') data = data.filter(t => t.eligible === 0);
+  else if (activeFilter === 'pending') data = data.filter(t => t.eligible == null || t.eligible === -1);
+
+  if (q) data = data.filter(t =>
+    (t.title || '').toLowerCase().includes(q) ||
+    (t.publisher || '').toLowerCase().includes(q) ||
+    (t.branch || '').toLowerCase().includes(q)
+  );
+
+  const tbody = document.getElementById('table-body');
+  const empty = document.getElementById('empty');
+
+  if (data.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = data.map(t => `
+    <tr>
+      <td class="tender-title">
+        <a href="${t.url}" target="_blank">${esc(t.title || t.tender_id)}</a>
+        <div class="publisher-name">${esc(t.publisher || '')}</div>
+        ${t.branch ? `<div class="publisher-name" style="color:#888">${esc(t.branch)}</div>` : ''}
+      </td>
+      <td>${eligibilityBadge(t)}</td>
+      <td class="deadline ${deadlineClass(t.submission_date || t.ai_deadline)}">${formatDate(t.submission_date || t.ai_deadline)}</td>
+      <td class="links-cell">${renderLinks(t)}</td>
+      <td class="conditions-cell">${renderConditions(t.threshold_conditions, 3)}</td>
+      <td class="docs-cell">${renderList(t.required_documents, 3, '📄')}</td>
+      <td class="questions-cell">${renderList(t.questions_to_client, 2, '❓')}</td>
+      <td style="white-space:nowrap;font-size:0.85rem">${renderFee(t.submission_fee)}</td>
+      <td class="status-cell">${renderStatusSelect(t)}</td>
+      <td class="actions">
+        <button class="act-btn open" onclick="showDetail('${t.tender_id}')">פרטים מלאים</button>
+        <button class="act-btn reanalyze" onclick="fetchDocs('${t.tender_id}', this)" title="שלוף קישורי מסמכים מאתר יפעת">📎 טען מסמכים</button>
+        <button class="act-btn reanalyze" onclick="reanalyze('${t.tender_id}', this)">נתח מחדש</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function eligibilityBadge(t) {
+  if (t.eligible === 1) return '<span class="badge yes">✓ כן — עומד בתנאים</span>';
+  if (t.eligible === 0) return '<span class="badge no">✗ לא עומד בתנאים</span>';
+  if (t.eligible === -1) return '<span class="badge pending" title="לחץ \'נתח מחדש עם מסמכים\' לניתוח מלא">📄 נדרש ניתוח מסמכים</span>';
+  return '<span class="badge pending">? טרם נותח</span>';
+}
+
+function renderFee(fee) {
+  if (!fee || fee === 'לא צוין' || fee === 'null') {
+    return '<span style="color:#bbb;font-size:0.78rem">לא צוין</span>';
+  }
+  const lower = fee.toLowerCase();
+  if (lower.includes('ללא') || lower.includes('חינם') || lower === '0') {
+    return `<span style="color:#2e7d32;font-weight:700">✓ ללא תשלום</span>`;
+  }
+  return `<span style="color:#c62828;font-weight:700">💳 ${esc(fee)}</span>`;
+}
+
+function renderStatusSelect(t) {
+  const s = t.submission_status || '';
+  const cls = s === 'submitted' ? 'submitted' : s === 'in_progress' ? 'in-progress' : s === 'not_relevant' ? 'not-relevant' : 'not-submitted';
+  return `<select class="status-select ${cls}" onchange="updateStatus('${t.tender_id}', this)">
+    <option value="" ${!s?'selected':''}>— לא טופל —</option>
+    <option value="not_submitted" ${s==='not_submitted'?'selected':''}>⏳ לא הוגש</option>
+    <option value="in_progress" ${s==='in_progress'?'selected':''}>🔄 בהכנה</option>
+    <option value="submitted" ${s==='submitted'?'selected':''}>✅ הוגש</option>
+    <option value="not_relevant" ${s==='not_relevant'?'selected':''}>❌ לא רלוונטי</option>
+  </select>`;
+}
+
+async function updateStatus(tenderId, sel) {
+  const status = sel.value;
+  // Update style immediately
+  sel.className = 'status-select ' + (
+    status === 'submitted' ? 'submitted' :
+    status === 'in_progress' ? 'in-progress' :
+    status === 'not_relevant' ? 'not-relevant' :
+    status === 'not_submitted' ? 'not-submitted' : ''
+  );
+  try {
+    await fetch(`/api/tender/${tenderId}/status`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({status})
+    });
+    // Update local data
+    const t = allTenders.find(x => x.tender_id === tenderId);
+    if (t) t.submission_status = status;
+  } catch(e) {
+    showToast('שגיאה בשמירת הסטטוס');
+  }
+}
+
+function renderLinks(t) {
+  let html = '';
+  // קישור לדף המכרז
+  if (t.url) {
+    html += `<a href="${t.url}" target="_blank" class="link-btn site">🔗 דף המכרז</a>`;
+  }
+  // קישורי מסמכים
+  const docs = Array.isArray(t.documents) ? t.documents : [];
+  docs.slice(0, 3).forEach(d => {
+    if (d.url) {
+      const icon = d.url.endsWith('.pdf') ? '📄' : d.url.endsWith('.docx') || d.url.endsWith('.doc') ? '📝' : '📎';
+      const name = (d.name || 'מסמך').substring(0, 15);
+      html += `<a href="${d.url}" target="_blank" class="link-btn doc">${icon} ${esc(name)}</a>`;
+    }
+  });
+  if (docs.length === 0 && !t.url) {
+    html = '<span style="color:#bbb;font-size:0.78rem">—</span>';
+  }
+  return html;
+}
+
+function renderConditions(conditions, max) {
+  if (!conditions || !conditions.length) return '<span style="color:#bbb;font-size:0.78rem">—</span>';
+  const items = conditions.slice(0, max);
+  let html = items.map(c => `
+    <div class="cond-item">
+      <span class="cond-icon">${c.met ? '✅' : c.met === false ? '❌' : '⚠️'}</span>
+      <span class="cond-text">${esc(c.condition || '')}</span>
+    </div>
+  `).join('');
+  if (conditions.length > max) html += `<div style="font-size:0.75rem;color:#888">+${conditions.length - max} נוספים...</div>`;
+  return html;
+}
+
+function renderList(items, max, icon) {
+  if (!items || !items.length) return '<span style="color:#bbb;font-size:0.78rem">—</span>';
+  const arr = Array.isArray(items) ? items : [items];
+  let html = arr.slice(0, max).map(i => `<div class="doc-item">${icon} ${esc(String(i))}</div>`).join('');
+  if (arr.length > max) html += `<div style="font-size:0.75rem;color:#888">+${arr.length - max} נוספים...</div>`;
+  return html;
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  // Already formatted
+  return d.replace('T', ' ').substring(0, 16);
+}
+
+function deadlineClass(d) {
+  if (!d) return '';
+  const date = new Date(d.replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$3-$2-$1'));
+  const days = (date - Date.now()) / 86400000;
+  if (days < 7) return 'urgent';
+  if (days < 21) return 'soon';
+  return '';
+}
+
+function showDetail(tenderId) {
+  const t = allTenders.find(x => x.tender_id === tenderId);
+  if (!t) return;
+  document.getElementById('modal-title').textContent = t.title || t.tender_id;
+
+  const docs = Array.isArray(t.documents) ? t.documents : [];
+  const docsStr = docs.map(d => `<li><a href="${d.url}" target="_blank">${esc(d.name)}</a></li>`).join('') || '<li>—</li>';
+
+  const conditions = Array.isArray(t.threshold_conditions) ? t.threshold_conditions : [];
+  const condsStr = conditions.map(c => `
+    <div class="cond-row ${c.met === true ? 'met' : c.met === false ? 'not-met' : 'unknown'}">
+      <span>${c.met === true ? '✅' : c.met === false ? '❌' : '⚠️'}</span>
+      <div class="cond-body">
+        <div class="cond-name">${esc(c.condition || '')}</div>
+        ${c.notes ? `<div class="cond-note">${esc(c.notes)}</div>` : ''}
+      </div>
+    </div>
+  `).join('') || '<p style="color:#aaa">לא נמצאו תנאי סף</p>';
+
+  const reqs = Array.isArray(t.required_documents) ? t.required_documents : [];
+  const qs = Array.isArray(t.questions_to_client) ? t.questions_to_client : [];
+
+  document.getElementById('modal-body').innerHTML = `
+    <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+      ${eligibilityBadge(t)}
+      <span style="font-size:0.88rem;color:#666">📅 הגשה: <strong>${formatDate(t.submission_date || t.ai_deadline)}</strong></span>
+      <span style="font-size:0.88rem;color:#666">🏛 ${esc(t.publisher||'')}</span>
+      ${t.submission_fee && t.submission_fee !== 'לא צוין' ? `<span style="font-size:0.88rem;font-weight:700;color:#c62828">💳 עלות: ${esc(t.submission_fee)}</span>` : ''}
+    </div>
+    ${t.url ? `<div style="margin-bottom:16px"><a href="${t.url}" target="_blank" style="background:#1565c0;color:white;padding:8px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.9rem">🔗 פתח דף המכרז באתר יפעת</a></div>` : ''}
+
+    ${t.ai_summary ? `<div class="modal-section"><h3>סיכום</h3><p>${esc(t.ai_summary)}</p></div>` : ''}
+    ${t.eligibility_reason ? `<div class="modal-section"><h3>הסבר עמידה בתנאי סף</h3><p>${esc(t.eligibility_reason)}</p></div>` : ''}
+
+    <div class="modal-section"><h3>תנאי סף</h3>${condsStr}</div>
+
+    ${reqs.length ? `<div class="modal-section"><h3>מסמכים נדרשים להגשה</h3><ul>${reqs.map(r=>`<li>${esc(String(r))}</li>`).join('')}</ul></div>` : ''}
+
+    ${qs.length ? `<div class="modal-section"><h3>שאלות להגשה למזמין</h3><ul>${qs.map(q=>`<li>${esc(String(q))}</li>`).join('')}</ul></div>` : ''}
+
+    ${docs.length ? `<div class="modal-section"><h3>מסמכי המכרז</h3><ul>${docsStr}</ul></div>` : ''}
+
+    ${t.submission_notes ? `<div class="modal-section"><h3>הוראות הגשה</h3><p>${esc(t.submission_notes)}</p></div>` : ''}
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+async function reanalyze(tenderId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'מנתח...';
+  try {
+    await fetch(`/api/tender/${tenderId}/reanalyze`);
+    showToast('ניתוח הושלם — מרענן...');
+    setTimeout(() => { loadTenders(); btn.textContent = 'נתח מחדש'; btn.disabled = false; }, 1500);
+  } catch(e) {
+    btn.textContent = 'שגיאה';
+    btn.disabled = false;
+  }
+}
+
+async function reanalyzeAll(btn) {
+  if (!confirm('זה ינתח מחדש את כל המכרזים עם הורדת חוברות המכרז — יקח 10-20 דקות. להמשיך?')) return;
+  btn.disabled = true;
+  btn.textContent = 'מנתח...';
+  try {
+    await fetch('/api/reanalyze-all-with-docs');
+    showToast('ניתוח מחדש התחיל — רענן כל כמה דקות לראות עדכונים');
+    setTimeout(() => { btn.textContent = '📄 נתח מחדש עם מסמכים'; btn.disabled = false; loadTenders(); }, 30000);
+  } catch(e) {
+    btn.textContent = '📄 נתח מחדש עם מסמכים'; btn.disabled = false;
+  }
+}
+
+async function triggerScan(btn) {
+  btn.disabled = true;
+  btn.textContent = 'סורק...';
+  try {
+    await fetch('/api/scan', { method: 'POST' });
+    showToast('סריקה החלה ברקע — עדכון בעוד כמה דקות');
+    setTimeout(() => { btn.textContent = '⟳ סרוק מכרזים חדשים'; btn.disabled = false; loadTenders(); }, 5000);
+  } catch(e) {
+    btn.textContent = '⟳ סרוק מכרזים חדשים';
+    btn.disabled = false;
+  }
+}
+
+async function fetchDocs(tenderId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'טוען...';
+  try {
+    await fetch(`/api/tender/${tenderId}/fetch-docs`);
+    showToast('שולף מסמכים מאתר יפעת — יופיעו בעוד ~20 שניות');
+    setTimeout(() => { loadTenders(); btn.textContent = '📎 טען מסמכים'; btn.disabled = false; }, 22000);
+  } catch(e) {
+    btn.textContent = '📎 טען מסמכים';
+    btn.disabled = false;
+  }
+}
+
+async function addTenderUrl(btn) {
+  const input = document.getElementById('url-input');
+  const url = input.value.trim();
+  if (!url || !url.includes('tenders.co.il/tender/')) {
+    showToast('נא להכניס קישור מכרז תקין מ-tenders.co.il');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'מעבד...';
+  try {
+    const res = await fetch('/api/tender/process', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url})
+    });
+    input.value = '';
+    showToast('המכרז נשלח לניתוח — יופיע בטבלה בעוד כ-30 שניות');
+    setTimeout(loadTenders, 8000);
+    setTimeout(loadTenders, 20000);
+    setTimeout(loadTenders, 35000);
+  } catch(e) {
+    showToast('שגיאה — בדוק שהשרת פועל');
+  }
+  btn.disabled = false;
+  btn.textContent = '+ נתח מכרז';
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+loadTenders();
+setInterval(loadTenders, 60000); // refresh every minute
+</script>
+</body>
+</html>

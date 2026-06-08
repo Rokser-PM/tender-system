@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+.env
+data/tenders.db
+data/jwt_token.txt
+data/*.png
+data/*.log
+data/tenders_cookies.txt
+data/tenders_session.json
+*.log
