@@ -25,14 +25,22 @@ def load_env() -> dict:
 
 
 def get_jwt_token(allow_relogin: bool = True) -> str | None:
-    """מחזיר JWT token — מ-cache בלבד (ללא login אוטומטי שמשלח SMS)."""
+    """מחזיר JWT token — בודק env var, קובץ, ואז login."""
+    # 1. בדוק TENDERS_JWT_TOKEN env var (לשימוש ב-Render/ענן)
+    env_token = os.getenv("TENDERS_JWT_TOKEN", "").strip()
+    if env_token:
+        if is_token_valid(env_token):
+            return env_token
+        print("TENDERS_JWT_TOKEN env var expired — trying other methods")
+
+    # 2. בדוק קובץ cache מקומי
     if os.path.exists(TOKEN_FILE):
         with open(TOKEN_FILE) as f:
             token = f.read().strip()
         if token and is_token_valid(token):
             return token
 
-    # אם הטוקן פג — רק אם ביקשו במפורש
+    # 3. נסה login (עובד רק אם אפשר לקבל SMS)
     if allow_relogin:
         print("JWT token expired — refreshing...")
         return login_and_get_token()
