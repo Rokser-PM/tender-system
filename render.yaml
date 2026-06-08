@@ -3,7 +3,7 @@ services:
     name: tender-system-rokser
     runtime: python
     rootDir: backend
-    buildCommand: pip install -r ../requirements.txt
+    buildCommand: pip install -r ../requirements.txt && pip uninstall playwright pyee -y || true
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     disk:
       name: tender-data
@@ -23,7 +23,7 @@ services:
     name: tender-daily-scan
     runtime: python
     rootDir: backend
-    buildCommand: pip install -r ../requirements.txt
+    buildCommand: pip install -r ../requirements.txt && pip uninstall playwright pyee -y || true
     schedule: "0 6 * * *"
     startCommand: python auto_scraper.py
     disk:
